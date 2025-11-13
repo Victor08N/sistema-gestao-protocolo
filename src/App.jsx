@@ -35,7 +35,7 @@ const ProtocolManagementSystem = () => {
     }
 
     if (searchTerm) {
-      filtered = filtered.filter(p => 
+      filtered = filtered.filter(p =>
         p.id_protocolo.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.email_cliente.toLowerCase().includes(searchTerm.toLowerCase()) ||
         p.assunto_original.toLowerCase().includes(searchTerm.toLowerCase())
@@ -125,7 +125,7 @@ const ProtocolManagementSystem = () => {
 
     const updated = [...protocols, protocol];
     saveProtocols(updated);
-    
+
     setShowNewProtocolModal(false);
     setNewProtocol({
       email_cliente: '',
@@ -134,132 +134,49 @@ const ProtocolManagementSystem = () => {
       responsavel: ''
     });
     setAttachments([]);
-    
+
     addNotification(`Protocolo ${protocol.id_protocolo} criado com sucesso!`);
   };
 
-  const updateProtocolStatus = (protocolId, newStatus) => {
-    const updated = protocols.map(p => {
-      if (p.id_protocolo === protocolId) {
-        const updatedProtocol = {
-          ...p,
-          status_processo: newStatus,
-          data_ultima_atualizacao: new Date().toISOString()
-        };
-        
-        if (updatedProtocol.aprovacao_orcamento === 'APROVADO' && 
-            updatedProtocol.confirmacao_cliente === 'CONFIRMADO' &&
-            (newStatus === '1. Orçamento Solicitado' || newStatus === '2. Orçamento Enviado')) {
-          updatedProtocol.status_processo = '3. Orçamento Aprovado - Iniciar Produção';
-          addNotification('Aprovação dupla confirmada! Produção iniciada.', 'success');
-        }
-        
-        return updatedProtocol;
-      }
-      return p;
-    });
-    
-    saveProtocols(updated);
-    setSelectedProtocol(updated.find(p => p.id_protocolo === protocolId));
-    addNotification('Status atualizado com sucesso!');
+  const exportToXLSX = () => {
+    const headers = [
+      'ID Protocolo',
+      'Data de Entrada',
+      'E-mail do Cliente',
+      'Assunto',
+      'Status do Processo',
+      'Responsável',
+      'Aprovação Orçamento',
+      'Confirmação Cliente',
+      'Última Atualização',
+      'Detalhes',
+      'Anexos'
+    ];
+
+    const rows = filteredProtocols.map(p => [
+      p.id_protocolo,
+      new Date(p.data_entrada).toLocaleString('pt-BR'),
+      p.email_cliente,
+      p.assunto_original,
+      p.status_processo,
+      p.responsavel,
+      p.aprovacao_orcamento,
+      p.confirmacao_cliente,
+      new Date(p.data_ultima_atualizacao).toLocaleString('pt-BR'),
+      p.detalhes || '',
+      p.attachments ? p.attachments.length : 0
+    ]);
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Protocolos');
+
+    XLSX.writeFile(workbook, `protocolos_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+    addNotification('Planilha XLSX exportada com sucesso!');
   };
 
-  const updateApprovalStatus = (protocolId, field, value) => {
-    const updated = protocols.map(p => {
-      if (p.id_protocolo === protocolId) {
-        const updatedProtocol = {
-          ...p,
-          [field]: value,
-          data_ultima_atualizacao: new Date().toISOString()
-        };
-        
-        if (field === 'aprovacao_orcamento' && value === 'APROVADO' && 
-            updatedProtocol.confirmacao_cliente === 'CONFIRMADO') {
-          updatedProtocol.status_processo = '3. Orçamento Aprovado - Iniciar Produção';
-          addNotification('Aprovação interna confirmada! Verificando aprovação dupla...', 'success');
-        }
-        
-        if (field === 'confirmacao_cliente' && value === 'CONFIRMADO' && 
-            updatedProtocol.aprovacao_orcamento === 'APROVADO') {
-          updatedProtocol.status_processo = '3. Orçamento Aprovado - Iniciar Produção';
-          addNotification('Cliente confirmou! Verificando aprovação dupla...', 'success');
-        }
-        
-        return updatedProtocol;
-      }
-      return p;
-    });
-    
-    saveProtocols(updated);
-    setSelectedProtocol(updated.find(p => p.id_protocolo === protocolId));
-  };
-
-  const openEditModal = (protocol) => {
-    setEditProtocol({...protocol});
-    setShowEditModal(true);
-  };
-
-  const saveEditedProtocol = () => {
-    const updated = protocols.map(p => 
-      p.id_protocolo === editProtocol.id_protocolo 
-        ? { ...editProtocol, data_ultima_atualizacao: new Date().toISOString() }
-        : p
-    );
-    saveProtocols(updated);
-    setShowEditModal(false);
-    setEditProtocol(null);
-    addNotification('Protocolo editado com sucesso!');
-  };
-
-  const deleteProtocol = (protocolId) => {
-    if (window.confirm('Tem certeza que deseja excluir este protocolo? Esta ação não pode ser desfeita.')) {
-      const updated = protocols.filter(p => p.id_protocolo !== protocolId);
-      saveProtocols(updated);
-      setShowDetailModal(false);
-      setSelectedProtocol(null);
-      addNotification('Protocolo excluído com sucesso!');
-    }
-  };
-
-const exportToXLSX = () => {
-  const headers = [
-    'ID Protocolo',
-    'Data de Entrada',
-    'E-mail do Cliente',
-    'Assunto',
-    'Status do Processo',
-    'Responsável',
-    'Aprovação Orçamento',
-    'Confirmação Cliente',
-    'Última Atualização',
-    'Detalhes',
-    'Anexos'
-  ];
-
-  const rows = filteredProtocols.map(p => [
-    p.id_protocolo,
-    new Date(p.data_entrada).toLocaleString('pt-BR'),
-    p.email_cliente,
-    p.assunto_original,
-    p.status_processo,
-    p.responsavel,
-    p.aprovacao_orcamento,
-    p.confirmacao_cliente,
-    new Date(p.data_ultima_atualizacao).toLocaleString('pt-BR'),
-    p.detalhes || '',
-    p.attachments ? p.attachments.length : 0
-  ]);
-
-  // Cria a planilha
-  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
-  const workbook = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(workbook, worksheet, 'Protocolos');
-
-  // Exporta o arquivo
-  XLSX.writeFile(workbook, `protocolos_${new Date().toISOString().split('T')[0]}.xlsx`);
-
-  addNotification('Planilha XLSX exportada com sucesso!');
-
+  // Funções auxiliares que estavam dentro da exportToXLSX
   const getStatusColor = (status) => {
     const colors = {
       '1. Orçamento Solicitado': 'bg-amber-50 text-amber-700 border-amber-200',

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Plus, Mail, CheckCircle, Clock, Package, AlertCircle, Download, Edit2, Trash2, Paperclip, FileText, X, Save } from 'lucide-react';
+import * as XLSX from 'xlsx';
 
 const ProtocolManagementSystem = () => {
   const [protocols, setProtocols] = useState([]);
@@ -220,50 +221,44 @@ const ProtocolManagementSystem = () => {
     }
   };
 
-  const exportToCSV = () => {
-    const headers = [
-      'ID Protocolo',
-      'Data de Entrada',
-      'E-mail do Cliente',
-      'Assunto',
-      'Status do Processo',
-      'Responsável',
-      'Aprovação Orçamento',
-      'Confirmação Cliente',
-      'Última Atualização',
-      'Detalhes',
-      'Anexos'
-    ];
-    
-    const rows = filteredProtocols.map(p => [
-      p.id_protocolo,
-      new Date(p.data_entrada).toLocaleString('pt-BR'),
-      p.email_cliente,
-      `"${p.assunto_original.replace(/"/g, '""')}"`,
-      p.status_processo,
-      p.responsavel,
-      p.aprovacao_orcamento,
-      p.confirmacao_cliente,
-      new Date(p.data_ultima_atualizacao).toLocaleString('pt-BR'),
-      `"${(p.detalhes || '').replace(/"/g, '""')}"`,
-      p.attachments ? p.attachments.length : 0
-    ]);
-    
-    const csvContent = [
-      headers.join(','),
-      ...rows.map(row => row.join(','))
-    ].join('\n');
-    
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `protocolos_${new Date().toISOString().split('T')[0]}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-    addNotification('Planilha exportada com sucesso!');
-  };
+const exportToXLSX = () => {
+  const headers = [
+    'ID Protocolo',
+    'Data de Entrada',
+    'E-mail do Cliente',
+    'Assunto',
+    'Status do Processo',
+    'Responsável',
+    'Aprovação Orçamento',
+    'Confirmação Cliente',
+    'Última Atualização',
+    'Detalhes',
+    'Anexos'
+  ];
+
+  const rows = filteredProtocols.map(p => [
+    p.id_protocolo,
+    new Date(p.data_entrada).toLocaleString('pt-BR'),
+    p.email_cliente,
+    p.assunto_original,
+    p.status_processo,
+    p.responsavel,
+    p.aprovacao_orcamento,
+    p.confirmacao_cliente,
+    new Date(p.data_ultima_atualizacao).toLocaleString('pt-BR'),
+    p.detalhes || '',
+    p.attachments ? p.attachments.length : 0
+  ]);
+
+  // Cria a planilha
+  const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+  const workbook = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Protocolos');
+
+  // Exporta o arquivo
+  XLSX.writeFile(workbook, `protocolos_${new Date().toISOString().split('T')[0]}.xlsx`);
+
+  addNotification('Planilha XLSX exportada com sucesso!');
 
   const getStatusColor = (status) => {
     const colors = {

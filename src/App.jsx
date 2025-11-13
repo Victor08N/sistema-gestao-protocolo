@@ -2,8 +2,6 @@
 import { useEffect, useState } from "react";
 import { PlusCircle, Trash2, Edit2, Download, Paperclip } from "lucide-react";
 import * as XLSX from "xlsx";
-import { collection, addDoc, getDocs, deleteDoc, doc, updateDoc } from "firebase/firestore";
-import { db } from "./firebase";
 
 const ProtocolManagementSystem = () => {
   // state

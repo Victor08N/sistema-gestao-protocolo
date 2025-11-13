@@ -7,7 +7,7 @@ import {
 import * as XLSX from 'xlsx';
 import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
 import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
-import { db, storage } from "./firebase.js";
+import { db } from "./firebase.js";
 
 const ProtocolManagementSystem = () => {
   // state

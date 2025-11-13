@@ -5,11 +5,9 @@ import {
   Edit2, Trash2, Paperclip, FileText, X, Save
 } from 'lucide-react';
 import * as XLSX from 'xlsx';
-import { db, storage } from './firebase';
-import {
-  collection, addDoc, updateDoc, deleteDoc, doc, onSnapshot, query, orderBy
-} from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL, deleteObject } from 'firebase/storage';
+import { collection, getDocs, addDoc, updateDoc, deleteDoc, doc } from "firebase/firestore";
+import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "firebase/storage";
+import { db, storage } from "./firebase.js";
 
 const ProtocolManagementSystem = () => {
   // state

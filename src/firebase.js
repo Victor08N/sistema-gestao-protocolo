@@ -6,15 +6,11 @@ const firebaseConfig = {
   apiKey: "AIzaSyAqE4ZL1DeCXUonCDCUAVySCCeVJgry-us",
   authDomain: "sistema-gestao-protocolo.firebaseapp.com",
   projectId: "sistema-gestao-protocolo",
-  storageBucket: "sistema-gestao-protocolo.firebasestorage.app",
+  storageBucket: "sistema-gestao-protocolo.appspot.com",
   messagingSenderId: "1015021251500",
   appId: "1:1015021251500:web:8e1003ca36b808daee2809",
-  measurementId: "G-FQ00XCPBSE"
 };
 
-// Inicializa Firebase
 const app = initializeApp(firebaseConfig);
-
-// Firestore e Storage
 export const db = getFirestore(app);
 export const storage = getStorage(app);

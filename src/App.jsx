@@ -356,11 +356,11 @@ const exportToXLSX = () => {
                 ))}
               </select>
               <button
-                onClick={exportToCSV}
-                className="flex items-center gap-2 px-6 py-3 border border-slate-300 rounded-xl hover:bg-white transition-all font-medium bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md"
-              >
+                  onClick={exportToXLSX}
+                  className="flex items-center gap-2 px-6 py-3 border border-slate-300 rounded-xl hover:bg-white transition-all font-medium bg-white/50 backdrop-blur-sm shadow-sm hover:shadow-md"
+                >
                 <Download className="w-5 h-5" />
-                Exportar CSV
+                Exportar XLSX
               </button>
             </div>
           </div>

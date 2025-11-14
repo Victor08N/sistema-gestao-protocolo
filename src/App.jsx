@@ -30,7 +30,7 @@ const ProtocolManagementSystem = () => {
     '3. Orçamento Aprovado - Iniciar Produção',
     '4. Entregue ao Cliente'
   ];
-
+  
   // Firestore collection ref
   const protocolsCol = collection(db, 'protocols');
 

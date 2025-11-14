@@ -1,6 +1,6 @@
 // src/ProtocolManagementSystem.jsx
 import { useEffect, useState } from "react";
-import { PlusCircle, Trash2, Edit2, Download, Paperclip } from "lucide-react";
+import { PlusCircle, Trash2, Edit2, Download, Paperclip, Clock, Mail, CheckCircle, Package, AlertCircle, Search, FileText, Plus } from "lucide-react";
 import * as XLSX from "xlsx";
 
 export default function App() {
@@ -22,6 +22,7 @@ export default function App() {
     detalhes: '',
     responsavel: ''
   });
+
   const [editProtocol, setEditProtocol] = useState(null);
 
   const statusOptions = [
@@ -30,46 +31,43 @@ export default function App() {
     '3. Orçamento Aprovado - Iniciar Produção',
     '4. Entregue ao Cliente'
   ];
-  
-  // Firestore collection ref
-  const protocolsCol = collection(db, 'protocols');
 
-  // realtime listener
+  // Carregar dados do localStorage
   useEffect(() => {
-    const q = query(protocolsCol, orderBy('data_entrada', 'desc'));
-    const unsub = onSnapshot(q, (snap) => {
-      const docs = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      setProtocols(docs);
-    }, err => {
-      console.error('onSnapshot error', err);
-      addNotification('Erro ao sincronizar dados', 'error');
-    });
-    return () => unsub();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    const saved = localStorage.getItem("protocols");
+    if (saved) {
+      setProtocols(JSON.parse(saved));
+    }
   }, []);
 
-  // filtering & searching
+  // Atualizar filtros
   useEffect(() => {
-    let filtered = protocols || [];
-    if (statusFilter !== 'TODOS') {
+    localStorage.setItem("protocols", JSON.stringify(protocols));
+
+    let filtered = [...protocols];
+
+    if (statusFilter !== "TODOS") {
       filtered = filtered.filter(p => p.status_processo === statusFilter);
     }
-    if (searchTerm && searchTerm.trim() !== '') {
+
+    if (searchTerm.trim() !== "") {
       const term = searchTerm.toLowerCase();
       filtered = filtered.filter(p =>
-        (p.id_protocolo || '').toLowerCase().includes(term) ||
-        (p.email_cliente || '').toLowerCase().includes(term) ||
-        (p.assunto_original || '').toLowerCase().includes(term)
+        (p.id_protocolo || "").toLowerCase().includes(term) ||
+        (p.email_cliente || "").toLowerCase().includes(term) ||
+        (p.assunto_original || "").toLowerCase().includes(term)
       );
     }
+
     setFilteredProtocols(filtered);
   }, [protocols, statusFilter, searchTerm]);
 
-  // helpers
   const addNotification = (message, type = 'success') => {
     const id = Date.now() + Math.random();
     setNotifications(prev => [...prev, { id, message, type }]);
-    setTimeout(() => setNotifications(prev => prev.filter(n => n.id !== id)), 4500);
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    }, 4500);
   };
 
   const generateProtocolId = () => {
@@ -77,11 +75,10 @@ export default function App() {
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const seq = String(Math.floor(Math.random() * 900) + 100); // random 3 digits to avoid collisions
+    const seq = String(Math.floor(Math.random() * 900) + 100);
     return `${year}${month}${day}-${seq}`;
   };
 
-  // file handling (local before uploading)
   const handleFileUpload = (e) => {
     const files = Array.from(e.target.files || []);
     const newAtt = files.map(f => ({
@@ -98,226 +95,147 @@ export default function App() {
     setAttachments(prev => prev.filter(a => a.id !== id));
   };
 
-  // upload attachments to Storage under attachments/{docId}/{filename}
-  const uploadAttachments = async (docId) => {
-    if (!attachments || attachments.length === 0) return [];
-    const uploaded = [];
-    for (const att of attachments) {
-      const storagePath = `attachments/${docId}/${Date.now()}_${att.name}`;
-      const fileRef = ref(storage, storagePath);
-      try {
-        await uploadBytes(fileRef, att.file);
-        const url = await getDownloadURL(fileRef);
-        uploaded.push({
-          id: att.id,
-          name: att.name,
-          size: att.size,
-          type: att.type,
-          url,
-          path: storagePath // important for later deletion
-        });
-      } catch (err) {
-        console.error('upload error', err);
-        addNotification(`Erro ao enviar ${att.name}`, 'error');
-      }
-    }
-    return uploaded;
-  };
-
-  // create
-  const createNewProtocol = async () => {
+  // Criar protocolo local
+  const createNewProtocol = () => {
     if (!newProtocol.email_cliente || !newProtocol.assunto_original) {
-      addNotification('Preencha os campos obrigatórios', 'error');
+      addNotification("Preencha os campos obrigatórios", "error");
       return;
     }
 
     const id_protocolo = generateProtocolId();
+
     const base = {
+      id: Date.now(),
       id_protocolo,
       data_entrada: new Date().toISOString(),
       email_cliente: newProtocol.email_cliente,
       assunto_original: newProtocol.assunto_original,
-      status_processo: '1. Orçamento Solicitado',
-      responsavel: newProtocol.responsavel || 'Não atribuído',
+      detalhes: newProtocol.detalhes || "",
+      responsavel: newProtocol.responsavel || "Não atribuído",
+      status_processo: "1. Orçamento Solicitado",
+      aprovacao_orcamento: "PENDENTE",
+      confirmacao_cliente: "PENDENTE",
       data_ultima_atualizacao: new Date().toISOString(),
-      detalhes: newProtocol.detalhes || '',
-      aprovacao_orcamento: 'PENDENTE',
-      confirmacao_cliente: 'PENDENTE',
-      attachments: []
+      attachments: attachments
     };
 
-    try {
-      const docRef = await addDoc(protocolsCol, base);
-      // upload attachments (if any)
-      const uploaded = await uploadAttachments(docRef.id);
-      if (uploaded.length > 0) {
-        await updateDoc(doc(db, 'protocols', docRef.id), { attachments: uploaded });
-      }
-      setShowNewProtocolModal(false);
-      setNewProtocol({ email_cliente: '', assunto_original: '', detalhes: '', responsavel: '' });
-      setAttachments([]);
-      addNotification(`Protocolo ${id_protocolo} criado com sucesso!`);
-    } catch (err) {
-      console.error('create error', err);
-      addNotification('Erro ao criar protocolo', 'error');
-    }
+    setProtocols(prev => [base, ...prev]);
+
+    addNotification(`Protocolo ${id_protocolo} criado com sucesso!`);
+
+    setNewProtocol({ email_cliente: '', assunto_original: '', detalhes: '', responsavel: '' });
+    setAttachments([]);
+    setShowNewProtocolModal(false);
   };
 
-  // update status with approval logic
-  const updateProtocolStatus = async (docId, newStatus) => {
-    try {
-      const p = protocols.find(x => x.id === docId);
-      if (!p) return;
-      const updated = { status_processo: newStatus, data_ultima_atualizacao: new Date().toISOString() };
-
-      // Check approval combo rules (if both approvals done, set status to 3)
-      if (
-        (p.aprovacao_orcamento === 'APROVADO' || updated.aprovacao_orcamento === 'APROVADO') &&
-        (p.confirmacao_cliente === 'CONFIRMADO' || updated.confirmacao_cliente === 'CONFIRMADO')
-      ) {
-        // If either approval fields are already set, ensure status becomes 3 when appropriate
-        updated.status_processo = '3. Orçamento Aprovado - Iniciar Produção';
-      }
-
-      await updateDoc(doc(db, 'protocols', docId), updated);
-      addNotification('Status atualizado com sucesso!');
-    } catch (err) {
-      console.error('updateStatus error', err);
-      addNotification('Erro ao atualizar status', 'error');
-    }
+  // Atualizar status local
+  const updateProtocolStatus = (id, newStatus) => {
+    setProtocols(prev =>
+      prev.map(p =>
+        p.id === id
+          ? { ...p, status_processo: newStatus, data_ultima_atualizacao: new Date().toISOString() }
+          : p
+      )
+    );
+    addNotification("Status atualizado!");
   };
 
-  // update approval fields (aprovacao_orcamento or confirmacao_cliente)
-  const updateApprovalStatus = async (docId, field, value) => {
-    try {
-      const p = protocols.find(x => x.id === docId);
-      if (!p) return;
-      const updated = { [field]: value, data_ultima_atualizacao: new Date().toISOString() };
+  const updateApprovalStatus = (id, field, value) => {
+    setProtocols(prev =>
+      prev.map(p => {
+        if (p.id !== id) return p;
 
-      // if both approvals are positive, change status_processo
-      const aprov = field === 'aprovacao_orcamento' ? value : p.aprovacao_orcamento;
-      const conf = field === 'confirmacao_cliente' ? value : p.confirmacao_cliente;
+        const updated = {
+          ...p,
+          [field]: value,
+          data_ultima_atualizacao: new Date().toISOString()
+        };
 
-      if (aprov === 'APROVADO' && conf === 'CONFIRMADO') {
-        updated.status_processo = '3. Orçamento Aprovado - Iniciar Produção';
-        addNotification('Aprovação dupla confirmada! Produção iniciada.', 'success');
-      }
+        if (
+          (field === "aprovacao_orcamento" ? value : p.aprovacao_orcamento) === "APROVADO" &&
+          (field === "confirmacao_cliente" ? value : p.confirmacao_cliente) === "CONFIRMADO"
+        ) {
+          updated.status_processo = "3. Orçamento Aprovado - Iniciar Produção";
+        }
 
-      await updateDoc(doc(db, 'protocols', docId), updated);
-    } catch (err) {
-      console.error('updateApproval error', err);
-      addNotification('Erro ao atualizar aprovação', 'error');
-    }
+        return updated;
+      })
+    );
   };
 
-  // edit (open modal)
   const openEditModal = (protocol) => {
     setEditProtocol({ ...protocol });
     setShowEditModal(true);
   };
 
-  // save edit
-  const saveEditedProtocol = async () => {
-    if (!editProtocol) return;
-    try {
-      const docRef = doc(db, 'protocols', editProtocol.id);
-      await updateDoc(docRef, {
-        email_cliente: editProtocol.email_cliente,
-        assunto_original: editProtocol.assunto_original,
-        responsavel: editProtocol.responsavel,
-        detalhes: editProtocol.detalhes || '',
-        data_ultima_atualizacao: new Date().toISOString()
-      });
-
-      // if there are new local attachments queued in attachments state, upload and append
-      if (attachments.length > 0) {
-        const uploaded = await uploadAttachments(editProtocol.id);
-        if (uploaded.length > 0) {
-          const existing = editProtocol.attachments || [];
-          await updateDoc(docRef, { attachments: [...existing, ...uploaded] });
-        }
-        setAttachments([]);
-      }
-
-      setShowEditModal(false);
-      setEditProtocol(null);
-      addNotification('Protocolo editado com sucesso!');
-    } catch (err) {
-      console.error('save edit error', err);
-      addNotification('Erro ao salvar edição', 'error');
-    }
-  };
-
-  // delete protocol (and its attachments in storage)
-  const deleteProtocol = async (docId) => {
-    if (!window.confirm('Tem certeza que deseja excluir este protocolo? Esta ação não pode ser desfeita.')) return;
-    try {
-      const p = protocols.find(x => x.id === docId);
-      if (p && p.attachments && p.attachments.length) {
-        for (const att of p.attachments) {
-          if (att.path) {
-            try {
-              await deleteObject(ref(storage, att.path));
-            } catch (err) {
-              // file might already be missing; continue
-              console.warn('delete file error', err);
+  const saveEditedProtocol = () => {
+    setProtocols(prev =>
+      prev.map(p =>
+        p.id === editProtocol.id
+          ? {
+              ...editProtocol,
+              data_ultima_atualizacao: new Date().toISOString(),
+              attachments: [...(editProtocol.attachments || []), ...attachments]
             }
-          }
-        }
-      }
-      await deleteDoc(doc(db, 'protocols', docId));
-      setShowDetailModal(false);
-      setSelectedProtocol(null);
-      addNotification('Protocolo excluído com sucesso!');
-    } catch (err) {
-      console.error('delete error', err);
-      addNotification('Erro ao excluir protocolo', 'error');
-    }
+          : p
+      )
+    );
+    setAttachments([]);
+    setEditProtocol(null);
+    setShowEditModal(false);
+    addNotification("Protocolo editado com sucesso!");
   };
 
-  // download attachment (open in new tab)
+  const deleteProtocol = (id) => {
+    if (!window.confirm("Deseja realmente excluir?")) return;
+
+    setProtocols(prev => prev.filter(p => p.id !== id));
+
+    addNotification("Protocolo excluído!");
+  };
+
   const openAttachment = (att) => {
-    if (att.url) window.open(att.url, '_blank');
+    const url = URL.createObjectURL(att.file);
+    window.open(url, "_blank");
   };
 
-  // export XLSX (uses filteredProtocols to export what's visible)
   const exportToXLSX = () => {
     const headers = [
-      'ID Protocolo',
-      'Data de Entrada',
-      'E-mail do Cliente',
-      'Assunto',
-      'Status do Processo',
-      'Responsável',
-      'Aprovação Orçamento',
-      'Confirmação Cliente',
-      'Última Atualização',
-      'Detalhes',
-      'Anexos'
+      "ID Protocolo",
+      "Data de Entrada",
+      "E-mail do Cliente",
+      "Assunto",
+      "Status",
+      "Responsável",
+      "Aprovação",
+      "Confirmação",
+      "Última Atualização",
+      "Detalhes",
+      "Anexos"
     ];
 
     const rows = filteredProtocols.map(p => [
       p.id_protocolo,
-      p.data_entrada ? new Date(p.data_entrada).toLocaleString('pt-BR') : '',
+      new Date(p.data_entrada).toLocaleString("pt-BR"),
       p.email_cliente,
       p.assunto_original,
       p.status_processo,
       p.responsavel,
       p.aprovacao_orcamento,
       p.confirmacao_cliente,
-      p.data_ultima_atualizacao ? new Date(p.data_ultima_atualizacao).toLocaleString('pt-BR') : '',
-      p.detalhes || '',
-      p.attachments ? p.attachments.length : 0
+      new Date(p.data_ultima_atualizacao).toLocaleString("pt-BR"),
+      p.detalhes,
+      p.attachments?.length || 0
     ]);
 
     const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
     const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Protocolos');
-    XLSX.writeFile(workbook, `protocolos_${new Date().toISOString().split('T')[0]}.xlsx`);
-    addNotification('Planilha XLSX exportada com sucesso!');
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Protocolos");
+    XLSX.writeFile(workbook, "protocolos.xlsx");
+
+    addNotification("Planilha exportada!");
   };
 
-  // UI helpers
   const getStatusColor = (status) => {
     const colors = {
       '1. Orçamento Solicitado': 'bg-amber-50 text-amber-700 border-amber-200',
@@ -330,17 +248,19 @@ export default function App() {
 
   const getStatusIcon = (status) => {
     const icons = {
-      '1. Orçamento Solicitado': <Clock className="w-4 h-4" />,
-      '2. Orçamento Enviado': <Mail className="w-4 h-4" />,
-      '3. Orçamento Aprovado - Iniciar Produção': <CheckCircle className="w-4 h-4" />,
-      '4. Entregue ao Cliente': <Package className="w-4 h-4" />
+      "1. Orçamento Solicitado": <Clock className="w-4 h-4" />,
+      "2. Orçamento Enviado": <Mail className="w-4 h-4" />,
+      "3. Orçamento Aprovado - Iniciar Produção": <CheckCircle className="w-4 h-4" />,
+      "4. Entregue ao Cliente": <Package className="w-4 h-4" />
     };
     return icons[status] || <AlertCircle className="w-4 h-4" />;
   };
 
-  // render (keeps your original markup and style)
+ // RENDER — mantém TODO o seu layout original
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50">
+
+      {/* Notifications */}
       <div className="fixed top-4 right-4 z-50 space-y-2 max-w-md">
         {notifications.map(notif => (
           <div
@@ -353,6 +273,7 @@ export default function App() {
           </div>
         ))}
       </div>
+
 
       {/* Header */}
       <div className="bg-white/80 backdrop-blur-md shadow-lg border-b border-slate-200/50 sticky top-0 z-30">

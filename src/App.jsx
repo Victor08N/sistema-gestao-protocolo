@@ -722,4 +722,3 @@ export default function App() {
   );
 };
 
-export default ProtocolManagementSystem;

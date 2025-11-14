@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { PlusCircle, Trash2, Edit2, Download, Paperclip } from "lucide-react";
 import * as XLSX from "xlsx";
 
-para export default function App() => {
+para export default function App() {
   // state
   const [protocols, setProtocols] = useState([]);
   const [filteredProtocols, setFilteredProtocols] = useState([]);
